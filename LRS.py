@@ -28,16 +28,26 @@ def toPointH2(publicKeys):
     # convert to int
     iKeysHash = utils.bytes2Int(bKeysHash)
     # convert to point
-    try:
-        yCandidates = ECC_CURVE.y_values_for_x(iKeysHash)
-    except ValueError as e:
-        print('Cannot find Point for publicKeys' , e)
-        sys.exit(1)
+    point = _findPoint(iKeysHash)
+    return point
 
-    try:
-        return Point(iKeysHash, yCandidates[0], ECC_CURVE)
-    except NoSuchPointError as e:
-        return Point(iKeysHash, yCandidates[1], ECC_CURVE)
+def _findPoint(x):
+    """
+    Find value y of an ECC point given value of x
+    :param x:
+    :return: ECC point
+    """
+    while True:
+       ySq = x**3 + 7 # secp256k1
+       y = g.modular_sqrt(ySq)
+       if y != 0:
+           try:
+               point = Point(x, y, ECC_CURVE)
+               return point
+           except NoSuchPointError as e:
+               pass
+       x += 1
+
 
 
 def toNumberH1(publicKeys, P1, message, P2, P3):
@@ -86,7 +96,7 @@ def sign(message, publicKeys, privateKey, index):
 
     # step 3
     s = [0] * noKeys
-    for i in list(range(nextIndex, noKeys)) + list(range(index)):
+    for i in list( (nextIndex + i)%noKeys for i in range(noKeys-1)):
         nextI = (i+1) % noKeys
         si = randomNumber()
         s[i] = si
@@ -133,11 +143,12 @@ def generateKeys(number=10):
 
 
 if __name__ == "__main__":
+    import sys
     message = b'Trang'
     keys = list(generateKeys())
     publicKeys = [k[1] for k in keys]
     privateKeys = [k[0] for k in keys]
-    index = 3
+    index = int(sys.argv[1])
     signature = sign(message, publicKeys, privateKeys[index], index)
     print(verify(message, publicKeys, signature))
 
