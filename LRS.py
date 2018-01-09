@@ -37,17 +37,21 @@ def _findPoint(x):
     :param x:
     :return: ECC point
     """
+    x -= 1
     while True:
-       ySq = x**3 + 7 # secp256k1
-       y = g.modular_sqrt(ySq)
-       if y != 0:
-           try:
-               point = Point(x, y, ECC_CURVE)
-               return point
-           except NoSuchPointError as e:
-               pass
        x += 1
-
+       try:
+           # ySq = x* + ax + b (mode p)
+           # y = moduleo_square(ySq)
+           y = g.y_values_for_x(x)
+       except ValueError:
+            continue
+       y = y[0]
+       try:
+           point = Point(x, y, ECC_CURVE)
+           return point
+       except NoSuchPointError as e:
+           continue
 
 
 def toNumberH1(publicKeys, P1, message, P2, P3):
@@ -77,7 +81,6 @@ def _pointsToBytes(points):
     for point in points:
         bPoints += utils.pointTobytes(point)
     return bPoints
-
 
 
 def sign(message, publicKeys, privateKey, index):
@@ -131,6 +134,17 @@ def verify(message, publicKeys, signature):
 
     return c[0] == cZero
 
+def areLinked(sig1, sig2):
+    """
+    Check whether two signatures are signed by the same keys
+    NOTE: these two signatures should be generated from the same group. aka. list of public keys.
+    :param sig1: signature 1
+    :param sig2: signature 2
+    :return:  boolean value
+    """
+    _,_, yTilde1 = sig1
+    _,_, yTilde2 = sig2
+    return yTilde1 == yTilde2
 
 def generateKeys(number=10):
     for _ in range(number):
@@ -142,6 +156,7 @@ def generateKeys(number=10):
 
 
 
+
 if __name__ == "__main__":
     import sys
     message = b'Trang'
@@ -149,8 +164,19 @@ if __name__ == "__main__":
     publicKeys = [k[1] for k in keys]
     privateKeys = [k[0] for k in keys]
     index = int(sys.argv[1])
-    signature = sign(message, publicKeys, privateKeys[index], index)
-    print(verify(message, publicKeys, signature))
+    signature1 = sign(message, publicKeys, privateKeys[index], index)
+    print(verify(message, publicKeys, signature1))
+    print(signature1)
+
+
+    message = b'AnotherTrang'
+    signature2 = sign(message, publicKeys, privateKeys[index], index)
+    print(verify(message, publicKeys, signature2))
+    print(signature2)
+
+
+    print(areLinked(signature1, signature2))
+
 
 
 
